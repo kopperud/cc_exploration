@@ -1,0 +1,13 @@
+jobs/*
+logs/*
+output/*
+!output/.gitkeep
+!logs/.gitkeep
+!jobs/.gitkeep
+!figures/plotdata/.gitkeep
+.Rhistory
+history.txt
+.ipynb_checkpoints
+**/*.swp
+.RData
+figures/**/*.pdf

@@ -1,0 +1,93 @@
+##########
+# Analysis options
+##########
+
+# Specify tree file
+TREE_FILE = args[1]
+
+# Number of MCMC replicates
+NUM_REPS = args[2]
+
+# For reproducibility
+SEED = args[3]
+
+# Number of iterations
+NGEN = 50000#30 #50000
+
+seed(SEED)
+
+# What should we condition the tree on?
+CONDITION = "time"
+
+# set number of speciation_rate regimes (only used for MRF models)
+NUM_INTERVALS = 100
+
+# number of breaks between regimes, for convenience (only used for MRF models)
+NUM_BREAKS = NUM_INTERVALS - 1
+
+##########
+# sampling fraction
+##########
+
+source("trees/" + TREE_FILE + "_sampling.Rev")
+
+##########
+# Get data
+##########
+psi <- readTrees("trees/" + TREE_FILE + ".tre")[1]
+
+## If more than 800 taxa, don't do the analysis
+if (psi.taxa().size() > 800){
+q()
+}
+
+# Get some useful variables from the data. We need these later on.
+taxa        <- psi.taxa()
+num_species <- psi.ntips()
+root_height <- psi.rootAge()
+
+mvi = 0
+
+moves    = VectorMoves()
+monitors = VectorMonitors()
+
+##########
+# Tree model
+##########
+source("scripts/HSMRBDP.Rev")
+#source("scripts/constantBDP.Rev")
+
+### clamp the model with the "observed" tree
+timetree.clamp(psi)
+
+##########
+# The model DAG
+##########
+
+### workspace model wrapper ###
+mymodel = model(timetree)
+
+##########
+# The monitors
+##########
+
+### set up the monitors that will output parameter values to file and screen
+monitors.append( mnModel(filename="output/HSMRF_" + TREE_FILE + ".log",printgen=10, separator = TAB))
+monitors.append( mnScreen(printgen=1000))
+
+##########
+# Run MCMC
+##########
+
+### workspace mcmc ###
+mymcmc = mcmc(mymodel, monitors, moves, nruns=NUM_REPS)
+
+### Use burnin to tune the MH proposals ###
+mymcmc.burnin(generations=5000,tuningInterval=100)
+mymcmc.operatorSummary()
+
+### run the MCMC ###
+mymcmc.run(generations=NGEN)
+
+
+q()

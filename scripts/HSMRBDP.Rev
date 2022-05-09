@@ -1,0 +1,157 @@
+##########
+# HSMRBDP
+# Horse-Shoe Markov Random Birth-Death Process
+#
+#
+#
+##########
+
+##########
+# Setup and hyperpriors
+##########
+
+# Chop up duration from root to present into equally sized intervals
+interval_times <- abs(root_height * seq(1, NUM_BREAKS, 1)/NUM_INTERVALS)
+
+
+
+######################
+# rates through time #
+######################
+
+
+speciation_rate_at_present ~ dnUniform(0,100)
+extinction_rate_at_present ~ dnUniform(0,100)
+
+speciation_rate_at_present.setValue(0.2)
+extinction_rate_at_present.setValue(0.005)
+
+avmvn_rates_at_present = mvAVMVN(weight=50)
+avmvn_rates_at_present.addVariable(speciation_rate_at_present)
+avmvn_rates_at_present.addVariable(extinction_rate_at_present)
+moves.append( avmvn_rates_at_present)
+
+up_down_move = mvUpDownScale(weight=5.0)
+up_down_move.addVariable(speciation_rate_at_present,TRUE)
+up_down_move.addVariable(extinction_rate_at_present,TRUE)
+moves.append( up_down_move)
+
+moves.append( mvScaleBactrian(speciation_rate_at_present,weight=5))
+moves.append( mvScaleBactrian(extinction_rate_at_present,weight=5))
+moves.append( mvMirrorMultiplier(speciation_rate_at_present,weight=5))
+moves.append( mvMirrorMultiplier(extinction_rate_at_present,weight=5))
+moves.append( mvRandomDive(speciation_rate_at_present,weight=5))
+moves.append( mvRandomDive(extinction_rate_at_present,weight=5))
+
+
+## Global shrinkage parameter
+speciation_rate_global_scale_hyperprior     <- 0.0021
+extinction_rate_global_scale_hyperprior     <- 0.0021
+
+speciation_rate_global_scale ~ dnHalfCauchy(0,1)
+extinction_rate_global_scale ~ dnHalfCauchy(0,1)
+
+speciation_rate_global_scale.setValue(runif(1,0.005,0.1)[1])
+extinction_rate_global_scale.setValue(runif(1,0.005,0.1)[1])
+
+moves.append( mvScaleBactrian(speciation_rate_global_scale,weight=5.0))
+moves.append( mvScaleBactrian(extinction_rate_global_scale,weight=5.0))
+
+for (i in 1:(NUM_INTERVALS-1)) {
+
+  # Variable-scaled variances for hierarchical horseshoe
+  sigma_speciation_rate[i] ~ dnHalfCauchy(0,1)
+  sigma_extinction_rate[i] ~ dnHalfCauchy(0,1)
+
+  # Make sure values initialize to something reasonable
+  sigma_speciation_rate[i].setValue(runif(1,0.005,0.1)[1])
+  sigma_extinction_rate[i].setValue(runif(1,0.005,0.1)[1])
+
+  # moves on the single sigma values
+  moves.append( mvScaleBactrian(sigma_speciation_rate[i], weight=5))
+  moves.append( mvScaleBactrian(sigma_extinction_rate[i], weight=5))
+
+  # non-centralized parameterization of horseshoe
+  delta_log_speciation_rate[i] ~ dnNormal( mean=0, sd=sigma_speciation_rate[i]*speciation_rate_global_scale*speciation_rate_global_scale_hyperprior )
+  delta_log_extinction_rate[i] ~ dnNormal( mean=0, sd=sigma_extinction_rate[i]*extinction_rate_global_scale*extinction_rate_global_scale_hyperprior )
+
+  # Make sure values initialize to something reasonable
+  #delta_log_speciation_rate[i].setValue(runif(1,-0.05,0.05)[1])
+  delta_log_speciation_rate[i].setValue(0.0)
+  #delta_log_extinction_rate[i].setValue(runif(1,-0.15,0.15)[1])
+  delta_log_extinction_rate[i].setValue(0.0)
+
+  moves.append( mvSlideBactrian(delta_log_speciation_rate[i], weight=5))
+  moves.append( mvSlideBactrian(delta_log_extinction_rate[i], weight=5))
+
+  delta_up_down_move[i] = mvUpDownSlide(weight=5.0)
+  delta_up_down_move[i].addVariable(delta_log_speciation_rate[i],TRUE)
+  delta_up_down_move[i].addVariable(delta_log_extinction_rate[i],TRUE)
+  moves.append( delta_up_down_move[i])
+
+}
+
+# Assemble first-order differences and speciation_rate at present into the random field
+speciation_rate := fnassembleContinuousMRF(speciation_rate_at_present,delta_log_speciation_rate,initialValueIsLogScale=FALSE,order=1)
+extinction_rate := fnassembleContinuousMRF(extinction_rate_at_present,delta_log_extinction_rate,initialValueIsLogScale=FALSE,order=1)
+
+# Move all field parameters in one go
+moves.append( mvEllipticalSliceSamplingSimple(delta_log_speciation_rate,weight=5,tune=FALSE))
+moves.append( mvEllipticalSliceSamplingSimple(delta_log_extinction_rate,weight=5,tune=FALSE))
+
+# Move all field hyperparameters in one go
+moves.append( mvHSRFHyperpriorsGibbs(speciation_rate_global_scale, sigma_speciation_rate, delta_log_speciation_rate, speciation_rate_global_scale_hyperprior, propGlobalOnly=0.75, weight=20))
+moves.append( mvHSRFHyperpriorsGibbs(extinction_rate_global_scale, sigma_extinction_rate, delta_log_extinction_rate, extinction_rate_global_scale_hyperprior, propGlobalOnly=0.75, weight=20))
+
+# Swap moves to exchange adjacent delta,sigma pairs
+moves.append( mvHSRFIntervalSwap(delta_log_speciation_rate,sigma_speciation_rate,weight=5))
+moves.append( mvHSRFIntervalSwap(delta_log_extinction_rate,sigma_extinction_rate,weight=5))
+
+# joint sliding moves of all vector elements
+moves.append( mvVectorSlide(delta_log_speciation_rate, weight=10))
+moves.append( mvVectorSlide(delta_log_extinction_rate, weight=10))
+
+# up-down slide of the entire vector and the rate at present
+rates_up_down_move = mvUpDownScale(weight=10.0)
+rates_up_down_move.addVariable(speciation_rate_at_present,FALSE)
+rates_up_down_move.addVariable(extinction_rate_at_present,FALSE)
+rates_up_down_move.addVariable(delta_log_speciation_rate,TRUE)
+rates_up_down_move.addVariable(delta_log_extinction_rate,TRUE)
+moves.append( rates_up_down_move)
+
+# shrink expand moves
+moves.append( mvShrinkExpand( delta_log_speciation_rate, sd=speciation_rate_global_scale, weight=10 ))
+moves.append( mvShrinkExpand( delta_log_extinction_rate, sd=extinction_rate_global_scale, weight=10 ))
+
+
+
+##########
+# Assemble the tree model
+##########
+
+timetree ~ dnEBDP( 
+		lambdaRates = speciation_rate,
+		lambdaTimes = interval_times,
+		muRates = extinction_rate,
+		muTimes = interval_times,
+		rho = rho,
+		rootAge = root_height,
+		samplingStrategy = "uniform",
+		condition = CONDITION,
+		initialTree = psi,
+		taxa = taxa
+		)
+
+			
+
+#timetree ~ dnBDSTP( rootAge                                          = root_height,
+#                    timeline                                         = interval_times,
+#                    lambda                                           = speciation_rate,
+#                    mu                                               = extinction_rate,
+#                    phi                                              = 0,
+#                    r                                                = 0,
+#                    Phi                                              = rho,
+#                    condition                                        = CONDITION,
+#                    taxa                                             = taxa,
+#                    initialTree                                      = psi)
+
