@@ -1,4 +1,4 @@
-Code and data supplement to the manuscript titled "Rapidly changing speciation rates can be inferred in spite of non-identifiability", by Kopperud, Magee & Höhna
+Code and data supplement to the manuscript titled "Rapidly changing speciation and extinction rates can be inferred in spite of non-identifiability", by Kopperud, Magee & Höhna
 
 ## Organization
 
