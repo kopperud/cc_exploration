@@ -5,7 +5,7 @@
 #
 ###################################
 
-library(ACDC)
+library(CRABS)
 library(ape)
 library(dplyr)
 library(tidyr)
@@ -29,7 +29,7 @@ expseq <- function (from = 1, to = 1e+05, length.out = 6) {
 
 
 ## settings
-setwd("~/projects/diversify")
+setwd("~/projects/cc_exploration")
 phy <- read.tree("trees/condamine_etal_2019_Picidae.tre")
 height <- max(node.depth.edgelength(phy))
 times <- seq(0, height, length.out = 500)
@@ -146,7 +146,8 @@ lambda <- function(t) 0.28
 references <- lapply(ref_foos, function(foo) create.model(func_spec0 = lambda, func_ext0 = foo, times = times))
 
 ## CONGRUENCE CLASSES
-cgs <- lapply(references, function(ref) congruent.models(ref, lambdas = unlist(foo_rate), keep_ref = TRUE))
+cgs_fromlambda <- lapply(references, function(ref) congruent.models(ref, lambdas = unlist(foo_rate), keep_ref = TRUE))
+cgs <- cgs_fromlambda
 group_names <- factor(c(names(foo_rate), "reference"), levels = c(names(foo_rate), "reference"))
 ps <- lapply(cgs,
              function(cg) summarize.trends(cg, threshold = 0.02, 
@@ -256,7 +257,8 @@ ps2 <- lapply(names(foo_rate), function(rate) foobar(pdata, rate)); names(ps2) <
 
 
 p_combined <- ps2$modal + ps2$up + ps2$down +plot_spacer() + 
-  ll$modal + ll$down + ll$down + plot_spacer() + 
+  #ll$modal + ll$down + ll$down + plot_spacer() +
+  ll$modal + ll$up + ll$down + plot_spacer() + 
   ps2$linear_up + ps2$linear_down + ps2$exp_up + ps2$exp_down +
   ll$linear_up + ll$linear_down + ll$exp_up + ll$exp_down +
   plot_layout(ncol = 4)
@@ -274,4 +276,6 @@ for (cg_name in names(cgs)){
   ggsave(paste0("figures/suppmat/spaghetti_", cg_name, "_fromlambda.pdf"),
          p, width = 100, height = 130, units = "mm")
 }
+
+
 

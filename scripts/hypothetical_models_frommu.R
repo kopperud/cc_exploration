@@ -4,7 +4,7 @@
 #
 ###################################
 
-library(ACDC)
+library(CRABS)
 library(ape)
 library(dplyr)
 library(tidyr)
@@ -140,7 +140,8 @@ references <- lapply(ref_foos, function(foo) create.model(func_spec0 = foo, func
 
 
 ## CONGRUENCE CLASSES
-cgs <- lapply(references, function(ref) congruent.models(ref, mus = unlist(foo_rate), keep_ref = TRUE))
+cgs_frommu <- lapply(references, function(ref) congruent.models(ref, mus = unlist(foo_rate), keep_ref = TRUE))
+cgs <- cgs_frommu
 group_names <- factor(c(names(foo_rate), "reference"), levels = c(names(foo_rate), "reference"))
 ps <- lapply(cgs,
              function(cg) summarize.trends(cg, threshold = 0.02, group_names = group_names)); names(ps) <- names(foo_rate)
@@ -290,7 +291,6 @@ foobar <- function(pdata, item1, ref_only = FALSE){
             axis.text.y = element_blank(),
             )
   }
-  
   return(p)
 }
 
@@ -341,4 +341,77 @@ for (cg_name in names(cgs)){
   ggsave(paste0("figures/suppmat/spaghetti_", cg_name, "_frommu.pdf"),
          p, width = 100, height = 130, units = "mm")
 }
+
+
+######################
+# Subset sigmoidal up congruence class, with constant alternative rates
+cartoon_idx <- grepl("constant", names(cgs[["up"]])) | grepl("reference", names(cgs[["up"]]))
+cartoon_cg <- cgs[["up"]][cartoon_idx]; class(cartoon_cg) <- c("list", "CRABSset")
+
+dfs <- list()
+for (i in seq_along(cartoon_cg)){
+  df5 <- model2df(cartoon_cg[[i]], compute.pulled.rates = FALSE)
+  df5[["name"]] <- names(cartoon_cg)[i]
+  dfs[[i]] <- df5
+}
+
+cols1 <- c(colorspace::sequential_hcl(8, "orange")[1:5], "black")
+p1 <- bind_rows(dfs) %>%
+  dplyr::filter(rate == "Extinction") %>%
+  ggplot(aes(x = Time, y = value, color = name)) +
+  geom_line() +
+  theme_classic() +
+  scale_x_reverse() +
+  scale_color_manual(values = cols1) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  ylab("Extinction rate") +
+  ylim(c(0.0, 1.0))
+
+cols2 <- c(colorspace::sequential_hcl(8, "blues")[1:5], "black")
+p2 <- bind_rows(dfs) %>%
+  dplyr::filter(rate == "Speciation") %>%
+  ggplot(aes(x = Time, y = value, color = name)) +
+  geom_line() +
+  theme_classic() +
+  scale_x_reverse() +
+  scale_color_manual(values = cols2) +
+  ylab("Speciation rate") +
+  ylim(c(0.0, 1.0)) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+lf3 <- c("reference" = "*",
+        "constant" = "Constant extinction")
+
+trendplot <- summarize.trends(cartoon_cg, threshold = 0.02, group_names = c("reference", "constant"))[[2]]
+trendplot <- trendplot + 
+  theme(legend.position = c(0.2, 0.5),
+        #legend.position = c(0.45, 0.8),
+        legend.title = element_blank(),
+        legend.background = element_blank(),
+        legend.key.size = unit(3, "mm"),
+        legend.key = element_rect()) +
+  facet_grid(group_name~., scales="free_y", 
+             space="free_y", switch = "y", 
+             labeller = labeller(group_name = lf3)) +
+  xlab("Time (Ma)") +
+  ylab("Congruent models")
+(p1 | p2 ) / trendplot
+
+cartoon <- p1 / p2 / trendplot
+
+ggsave("figures/ms/cartoon.pdf",
+       cartoon, width = 100, height = 130, units = "mm")
+
+
+
+
+
+
+
+
+
 
