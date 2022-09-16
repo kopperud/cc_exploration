@@ -1,7 +1,7 @@
 ## Congruence classes
 ## On Picidae -- The Woodpeckers
 library(readr)
-library(ACDC)
+library(CRABS)
 library(tibble)
 library(dplyr)
 library(RColorBrewer)
@@ -122,7 +122,7 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
   
   xtimes <- dataset$reference$times
   for (i in 1:n_samples){
-    mu <- ACDC::sample.basic.models(times = xtimes, model = "MRF", MRF.type = "HSMRF", 
+    mu <- CRABS::sample.basic.models(times = xtimes, model = "MRF", MRF.type = "HSMRF", 
                                    min.rate = 0.0, max.rate = 0.3, rate0.median = 0.1 + addconstant, fc.mean = 3.0)
     HSMRF_mus[[i]] <- mu
   }
@@ -199,6 +199,89 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
   
   ggsave(paste0("figures/suppmat/", dataset_name, "/hyp_from_mu.pdf"), f3, width = 90, height = 170, units = "mm")
   
+  ################################################
+  #
+  # Figure 1 with rate plots and the trend chart
+  #
+  ################################################
+  
+  # p_pedagogic <- (p_rbfit) /
+  #   (ps2$constants$`Extinction rate` + ps2$constants$`Speciation rate`) /
+  #   (ps2$exp1$`Extinction rate` + ps2$exp1$`Speciation rate`) /
+  #   (ps2$exp2$`Extinction rate` + ps2$exp2$`Speciation rate`) /
+  #   (ps2$modal1$`Extinction rate` + ps2$modal1$`Speciation rate`) /
+  #   (p3a + p3b) /
+  #   () & 
+  #   scale_y_continuous(labels = scaleyformat, 
+  #                      breaks = scales::pretty_breaks(n = 4))
+
+  
+  pedagogic_mu_data <- m2$constants %>%
+    models2df() %>%
+    filter(name != "reference") %>%
+    filter(rate == "Extinction")
+  
+  pedagogic_mu <- ci_plotdata %>%
+    filter(item == "Extinction rate") %>%
+    ggplot(aes(x = time, y = median)) +
+    #scale_y_continuous(breaks = scales::pretty_breaks(n = 4)) +
+    geom_line() + 
+    geom_line(data = pedagogic_mu_data, aes(x = Time, y = value, color = name)) +
+    scale_x_reverse() +
+    theme_classic() +
+    scale_color_manual(values = c(head(colorspace::sequential_hcl(palette = "Oranges", n = length(m2$constants)+2), n = -3), "black")) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "black", alpha = 0.2) +
+    theme(axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          legend.position = "none") +
+    ylab("Extinction rate")
+  
+  pedagogic_lambda_data <- m2$constants %>%
+    models2df() %>%
+    filter(name != "reference") %>%
+    filter(rate == "Speciation")
+  
+  pedagogic_lambda <- ci_plotdata %>%
+    filter(item == "Speciation rate") %>%
+    ggplot(aes(x = time, y = median)) +
+    #scale_y_continuous(breaks = scales::pretty_breaks(n = 4)) +
+    geom_line() + 
+    geom_line(data = pedagogic_lambda_data, aes(x = Time, y = value, color = name)) +
+    scale_x_reverse() +
+    theme_classic() +
+    scale_color_manual(values = c(head(colorspace::sequential_hcl(palette = "Blues", n = length(m2$constants)+2), n = -3), "black")) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "black", alpha = 0.2) +
+    theme(#axis.title.x=element_blank(),
+          #axis.text.x=element_blank(),
+          legend.position = "none") +
+    ylab("Speciation rate") +
+    xlab("Time (Ma)")
+  
+  lf5 <- c("reference" = "*",
+          "model" = "Constant extinction")
+  
+  pedagogic_trends <- summarize.trends(m2$constants, threshold = 0.02, group_names = c("reference", "model"))[[2]] +
+    theme(legend.position = c(0.2, 0.4),
+          legend.key.size = unit(5, "mm"),
+          legend.background = element_blank(),
+          legend.key = element_rect(colour = "black", fill = NA, size = unit(0.1, "mm")),
+          legend.title = element_blank(),
+          plot.title = element_text(hjust = 0.5),
+          strip.text.y = element_text(size = 8)) +
+    ggtitle("Trends in speciation rates") +
+    xlab("Time (Ma)") +
+    ylab("Congruent models") +
+    facet_grid(group_name~., scales="free_y", space="free_y", switch = "y", labeller = labeller(group_name = lf5))
+  
+  p_pedagogic <- pedagogic_mu + 
+    pedagogic_lambda + 
+    pedagogic_trends +
+    #plot_annotation(tag_levels = "a", tag_suffix = ")") +
+    plot_layout(ncol = 1, heights = c(0.3, 0.3, 0.5))
+  
+  fname <- paste0("figures/ms/introductory/", gsub("condamine_etal_2019_", "", dataset_name), "_mini.pdf")
+  ggsave(fname, p_pedagogic, 
+         width = 100, height = 125, units = "mm")
   
   ################################################
   #                                              #
@@ -316,7 +399,7 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
   #                                              #
   ################################################
   
-  l <- unlist(m1, recursive = FALSE); class(l) <- c("list", "ACDCset")
+  l <- unlist(m1, recursive = FALSE); class(l) <- c("list", "CRABSset")
   l$reference <- m1$constant$reference
   l$reference <- NULL
   l$linear.reference <- NULL
@@ -327,7 +410,7 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
   l$three.reference <- NULL
   l$exp1.reference <- NULL
   
-  l2 <- unlist(m2, recursive = FALSE); class(l2) <- c("list", "ACDCset")
+  l2 <- unlist(m2, recursive = FALSE); class(l2) <- c("list", "CRABSset")
   l2$reference <- NULL
   l2$modal3.reference <- NULL
   l2$constants.reference <- NULL
@@ -337,7 +420,7 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
   l2$modal2.reference <- NULL
   names(l2) <- gsub("\\.model", "", names(l2))
   
-  l2 <- c(HSMRF_set, l2); class(l) <- c("list", "ACDCset")
+  l2 <- c(HSMRF_set, l2); class(l) <- c("list", "CRABSset")
   
   thresholds <- c(0.01, threshold, 0.05)
   
@@ -420,6 +503,7 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
   return(figures)
 }
 
+s <- bar("condamine_etal_2019_Tyrannidae", datasets)
 
 #rd2 <- c("condamine_etal_2019_Psittacidae", "condamine_etal_2019_Tyrannidae", "condamine_etal_2019_Picidae2")
 #figures <- lapply(rd2, function(name) bar(name, datasets)); names(figures) <- rd2

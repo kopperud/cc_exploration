@@ -9,6 +9,7 @@ library(ape)
 library(dplyr)
 library(tidyr)
 library(pracma)
+library(Cairo)
 library(patchwork)
 
 logistic_shift <- function(min, max, steepness, x0){
@@ -390,10 +391,13 @@ trendplot <- summarize.trends(cartoon_cg, threshold = 0.02, group_names = c("ref
 trendplot <- trendplot + 
   theme(legend.position = c(0.2, 0.5),
         #legend.position = c(0.45, 0.8),
-        legend.title = element_blank(),
         legend.background = element_blank(),
         legend.key.size = unit(3, "mm"),
+        #legend.title = element_text(),
+        legend.title = element_blank(),
         legend.key = element_rect()) +
+  scale_fill_manual(labels = c("Decreasing", "Flat", "Increasing"), values = c("purple", "white", "#7fbf7b"),
+                    name = "Speciation rate:") +
   facet_grid(group_name~., scales="free_y", 
              space="free_y", switch = "y", 
              labeller = labeller(group_name = lf3)) +
@@ -401,15 +405,139 @@ trendplot <- trendplot +
   ylab("Congruent models")
 (p1 | p2 ) / trendplot
 
+trendplot <- trendplot +
+  ggtitle("Trends in speciation rate") +
+  theme(plot.title = element_text(hjust = 0.5))
+
 cartoon <- p1 / p2 / trendplot
 
 ggsave("figures/ms/cartoon.pdf",
-       cartoon, width = 100, height = 130, units = "mm")
+       cartoon, width = 130, height = 140, units = "mm")
 
 
+###### Repeat Fig. S15 but with different steepnesses in the sigmoidal curve.
+
+n <- 5
+#steepnesses <- seq(0.3, 0.95, length.out = n)
+steepnesses <- c(0.3, 0.625, 0.8, 0.9, 0.95)
+fs <- sapply(steepnesses, function(s) logistic_shift(min=0.1, max=0.6, steepness = s, x0 = height/2.0))
+
+## calculate minimum slope
+deriv_min <- sapply(fs, function(f) min(fderiv(f, times)))
+
+ref_models <- lapply(fs, function(f) create.model(f, function(x) 0.28, times = times))
+names(ref_models) <- paste0("steep", as.character(steepnesses))
+
+model_sets <- lapply(ref_models, function(model) congruent.models(model, mus = unlist(foo_rate)))
+
+thresholds <- c(0.01, 0.02, 0.04, 0.08, 0.12)
+
+summaries <- list()
+summaries_rate <- list()
+for (i in seq_along(thresholds)){
+  threshold <- thresholds[i]
+  epsilon = thresholds[i]
+  
+  summaries[[i]] <- list()
+  summaries_rate[[i]] <- list()
+  
+  for (j in seq_along(model_sets)){
+    model_set <- model_sets[[j]]
+    
+    twopanel_trendplot <- summarize.trends(model_set, threshold = threshold, group_names = group_names)
+    summaries[[i]][[j]] <- twopanel_trendplot[[2]]
+    
+    summaries_rate[[i]][[j]] <- twopanel_trendplot[[1]] +
+      ylab(paste0("\u0394\u03BB, \u03B5 = ", epsilon))
+    
+    summaries[[i]][[j]] <- summaries[[i]][[j]] +
+      theme(#legend.position = c(0.2, 0.5),
+            legend.position = "none",
+            legend.title = element_blank(),
+            legend.background = element_blank(),
+            legend.key.size = unit(3, "mm"),
+            legend.key = element_rect(),
+            axis.text.x = element_blank(),
+            axis.text.y = element_blank(),
+            axis.title.x = element_blank(),
+            axis.title.y = element_blank()) +
+      facet_grid(group_name~., scales="free_y", 
+                 space="free_y", switch = "y", 
+                 labeller = labeller(group_name = lf)) +
+      xlab("Time (Ma)") +
+      ylab("Congruent models")
+    
+    if (j == 1){
+      summaries[[i]][[j]] <- summaries[[i]][[j]] +
+        theme(axis.title.y = element_text(angle = 90)) +
+        #ylab(bquote(list("Congruent models", epsilon==.(epsilon))))
+        ylab(paste0("Congruent models\n\u03B5 = ", epsilon))
+    }
+    
+    if (i == length(thresholds)){
+      summaries[[i]][[j]] <- summaries[[i]][[j]] +
+        theme(axis.title.x = element_text(),
+              axis.text.x = element_text())
+      
+      summaries_rate[[i]][[j]] <- summaries_rate[[i]][[j]] +
+        theme(axis.title.x = element_text(),
+              axis.text.x = element_text()) +
+        xlab("Time (Ma)")
+    }
+  }
+}
+names(summaries) <- paste0("threshold", as.character(thresholds))
+names(summaries_rate) <- paste0("threshold", as.character(thresholds))
 
 
+top_row <- list()
+for (i in seq_along(ref_models)){
+  d <- model2df(ref_models[[i]]) %>%
+    filter(rate == "Speciation")
+  derivs <- fderiv(ref_models[[i]]$lambda, d$Time)
+  min_deriv <- min(derivs)
+  min_deriv_time <- d$Time[which.min(derivs)]
+  dderiv <- tibble(
+    "Time" = min_deriv_time,
+    "value" = d$value[which.min(derivs)]
+  )
+  
+  top_row[[i]] <- ggplot(d, aes(x = Time, y = value)) +
+    geom_line() +
+    geom_point(data = dderiv) +
+    theme_classic() +
+    theme(axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          plot.title = element_text(hjust = 0.5)) +
+    scale_x_reverse() +
+    ylab("Speciation rate") +
+    ggtitle(paste0("dλ/dt = ", format(deriv_min, digits = 1)[i]))
+  
+  if (i > 1){
+    top_row[[i]] <- top_row[[i]] +
+      theme(axis.title.y = element_blank(),
+            axis.text.y = element_blank())
+  }
+}
+names(top_row) <- names(ref_models)
 
+p_sigmoidal_threshold <- 
+  Reduce("+",
+       unlist(
+         list(top_row, summaries),
+         recursive = FALSE)
+) +
+  plot_layout(ncol = 5)
+
+# p_sigmoidal_threshold <- top_row[[1]] + top_row[[2]] + top_row[[3]] + top_row[[4]] + top_row[[5]] + plot_spacer() +
+#   summaries$threshold0.01[[1]] + summaries$threshold0.01[[2]] + summaries$threshold0.01[[3]] + summaries$threshold0.01[[4]] + summaries$threshold0.01[[5]] + summaries_rate$threshold0.01[[5]] +
+#   summaries$threshold0.02[[1]] + summaries$threshold0.02[[2]] + summaries$threshold0.02[[3]] + summaries$threshold0.02[[4]] + summaries$threshold0.02[[5]] + summaries_rate$threshold0.02[[5]] + 
+#   summaries$threshold0.04[[1]] + summaries$threshold0.04[[2]] + summaries$threshold0.04[[3]] + summaries$threshold0.04[[4]] + summaries$threshold0.04[[5]] + summaries_rate$threshold0.04[[5]] + 
+#   summaries$threshold0.08[[1]] + summaries$threshold0.08[[2]] + summaries$threshold0.08[[3]] + summaries$threshold0.08[[4]] + summaries$threshold0.08[[5]] + summaries_rate$threshold0.08[[5]] + 
+#   summaries$threshold0.12[[1]] + summaries$threshold0.12[[2]] + summaries$threshold0.12[[3]] + summaries$threshold0.12[[4]] + summaries$threshold0.12[[5]] + summaries_rate$threshold0.12[[5]] +
+#   plot_layout(ncol = 6)
+#p_sigmoidal_threshold
+ggsave("figures/suppmat/p_sigmoidal_threshold.pdf", p_sigmoidal_threshold, width = 250, height = 230, units = "mm", device = cairo_pdf)
 
 
 
