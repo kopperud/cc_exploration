@@ -12,6 +12,13 @@ library(tidyr)
 library(pracma)
 library(patchwork)
 
+## Calculate maximum/min slope
+slopem <- function(f, times, method = "max"){
+  fd <- fderiv(Vectorize(f), times, method = "central")
+  res <- eval(call(method, fd))
+  return(res)
+}
+
 logistic_shift <- function(min, max, steepness, x0){
   res <- function(x) {
     ((max-min) / (1 + 1.0*steepness^(-1*(x - x0)))) + min
@@ -72,12 +79,27 @@ up <- lapply(up, function(f) function(t) f(t) + (lambda0 - f(0.0)))
 names(up) <- paste0("up", seq_along(up))
 foo_rate[["up"]] <- up
 
-## Down-shift
-steepnesses <- lseq(1.1, 2.5, length.out = n)
-down <- lapply(steepnesses, function(s) logistic_shift(min=0.28, max=0.54, steepness = s, x0 = height/2.0))
-down <- lapply(down, function(f) function(t) f(t) + (lambda0 - f(0.0)))
+## Down-shift#steepnesses2 <- lseq(1.12, 5, length.out = n)
+mse_slope <- function(f, times, target){
+  s <- slopem(f, times, method = "max")
+  mse <- (target - s)^2
+  return(mse)
+}
+
+steepnesses2l <- list()
+for (i in 1:n){
+  slope_up <- (-1)*slopem(foo_rate[["up"]][[i]], times, method = "min")
+  steepnesses2l[[i]] <- optimize(function(s) mse_slope(logistic_shift(min=0.1, max=0.6, steepness = s, x0 = height/2.0), times, slope_up), c(1.01, 15.0))$minimum
+}
+steepnesses2 <- unlist(steepnesses2l)
+
+down <- lapply(steepnesses2, function(s) logistic_shift(min=0.1, max=0.6, steepness = s, x0 = height/2.0))
 names(down) <- paste0("down", seq_along(down))
+down <- lapply(down, function(f) function(t) f(t) + (lambda0 - f(0.0)))
 foo_rate[["down"]] <- down
+
+## now the maximum slope of the S- rates are equal to the minimum slopes of the S+ (times *(-1)), in reversed order
+rev(sapply(foo_rate[["down"]], function(f) slopem(f, times, method = "max")))
 
 ## Exponentially increasing
 bs <- seq(0.05, 0.2, length.out = n)
