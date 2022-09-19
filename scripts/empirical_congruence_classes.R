@@ -435,6 +435,7 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
   
   trend_summaries <- list()
   rate_hypotheses <- list()
+  rate_delta_hypotheses <- list()
   
   for (thresh in thresholds){
     sthresh <- as.character(thresh)
@@ -442,6 +443,9 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
     group_names <- factor(c("reference", "constants", "exp1", "exp2", "modal1", "modal2", "modal3", "HSMRF"), 
                           levels = c("reference", "constants", "exp1", "exp2", "modal1", "modal2", "modal3", "HSMRF"))
     p10 <- summarize.trends(l2, threshold = thresh, rm_singleton = TRUE, 
+                            group_names = group_names)
+    p11 <- summarize.trends(l2, rate_name = "delta", threshold = thresh, 
+                            rm_singleton = TRUE,
                             group_names = group_names)
     
     p10[[1]] <- p10[[1]] + theme(legend.position = "none",
@@ -451,11 +455,19 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
     p10[[2]] <- p10[[2]] + 
       facet_grid(group_name~., scales="free_y", space="free_y", switch = "y", labeller = labeller(group_name = lf)) +
       theme(legend.position = "none") + 
-      ylab("Models") + 
+      ylab("Congruent models\n(speciation)") + 
+      xlab("Time (Ma)") +
+      plot_layout(ncol = 1)
+    
+    p11[[2]] <- p11[[2]] + 
+      facet_grid(group_name~., scales="free_y", space="free_y", switch = "y", labeller = labeller(group_name = lf)) +
+      theme(legend.position = "none") + 
+      ylab("Congruent models\n(net-diversification)") + 
       xlab("Time (Ma)") +
       plot_layout(ncol = 1)
     
     rate_hypotheses[[sthresh]] <- p10[[2]]
+    rate_delta_hypotheses[[sthresh]] <- p11[[2]]
     
     
     p12 <- summarize.trends(HSMRF_set, threshold = thresh, 
@@ -497,6 +509,7 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
     "f4" = f4,
     "trend_summaries" = trend_summaries,
     "rate_hypotheses" = rate_hypotheses,
+    "rate_delta_hypotheses" = rate_delta_hypotheses,
     "m1" = m1,
     "m2" = m2
   )
