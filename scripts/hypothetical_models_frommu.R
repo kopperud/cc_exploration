@@ -171,6 +171,10 @@ cgs <- cgs_frommu
 group_names <- factor(c(names(foo_rate), "reference"), levels = c(names(foo_rate), "reference"))
 ps <- lapply(cgs,
              function(cg) summarize.trends(cg, threshold = 0.02, group_names = group_names)); names(ps) <- names(foo_rate)
+psnetdiv <- lapply(cgs,
+                   function(cg) summarize.trends(cg, threshold = 0.02, rate_name = "delta", group_names = group_names)); names(psnetdiv) <- names(foo_rate)
+K <- "down"; plot(cgs[[K]])[[1]] +  ps[[K]] + plot(cgs[[K]])[[3]] + psnetdiv[[K]]
+
 
 ## Test exhibit with smaller mu
 mu2 <- list(
@@ -184,7 +188,8 @@ ref2 <- lapply(mu2, function(mu) create.model(func_spec0 = ref_foos$down,
                                               times = times))
 cgs2 <- lapply(ref2, function(ref) congruent.models(ref, mus = unlist(foo_rate), keep_ref = TRUE))
 ps2 <- lapply(cgs2,
-              function(cg) summarize.trends(cg, threshold = 0.02, group_names = group_names)); names(ps) <- names(foo_rate)
+              function(cg) summarize.trends(cg, threshold = 0.02, group_names = group_names))#; names(ps2) <- names(foo_rate)
+
 
 l <- list()
 for (i in seq_along(cgs2)){
@@ -244,6 +249,7 @@ ggsave("figures/suppmat/sigmoidal_down_variable_mu.pdf", sigmoid_down_variable_m
 
 
 ll <- list()
+llnetdiv <- list()
 for (i in seq_along(ps)){
   item <- names(ps)[i]
   tmp_plot <- ps[[i]][[2]]
@@ -251,7 +257,6 @@ for (i in seq_along(ps)){
     facet_grid(group_name~., scales="free_y", 
                space="free_y", switch = "y", 
                labeller = labeller(group_name = lf)) +
-    #labs(title = paste0("Reference = ", group_names[i])) +
     theme(axis.text.x = element_blank(),
           axis.title.x = element_blank(),
           axis.title.y = element_blank(),
@@ -536,7 +541,8 @@ for (i in seq_along(ref_models)){
           plot.title = element_text(hjust = 0.5)) +
     scale_x_reverse() +
     ylab("Speciation rate") +
-    ggtitle(paste0("dλ/dt = ", format(deriv_min, digits = 1)[i]))
+    ggtitle(paste0("dλ/dt = ", format(deriv_min, digits = 1)[i])) +
+    ylim(c(0.0, 0.7))
   
   if (i > 1){
     top_row[[i]] <- top_row[[i]] +

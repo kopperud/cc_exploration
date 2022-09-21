@@ -455,14 +455,14 @@ bar <- function(dataset_name, datasets, threshold = 0.02){
     p10[[2]] <- p10[[2]] + 
       facet_grid(group_name~., scales="free_y", space="free_y", switch = "y", labeller = labeller(group_name = lf)) +
       theme(legend.position = "none") + 
-      ylab("Congruent models\n(speciation)") + 
+      ylab("Congruent models") + 
       xlab("Time (Ma)") +
       plot_layout(ncol = 1)
     
     p11[[2]] <- p11[[2]] + 
       facet_grid(group_name~., scales="free_y", space="free_y", switch = "y", labeller = labeller(group_name = lf)) +
       theme(legend.position = "none") + 
-      ylab("Congruent models\n(net-diversification)") + 
+      ylab("Congruent models") + 
       xlab("Time (Ma)") +
       plot_layout(ncol = 1)
     
@@ -552,7 +552,8 @@ c("condamine_etal_2019_Viduidae", "condamine_etal_2019_Parulidae",
 ### Multi data summary
 plot_multidata <- function(d1, d2, d3,
                           titles = c("Psittacidae", "Tyrannidae", "Picidae"),
-                          thresholds = c("0.02", "0.02", "0.02")){
+                          thresholds = c("0.02", "0.02", "0.02"),
+                          short = FALSE){
   p1a <- d1$p_revbayesrates +
     labs(y = "Reference*", title = titles[1]) +
     theme(plot.title = element_text(vjust = 0, hjust = 0.5),
@@ -575,15 +576,17 @@ plot_multidata <- function(d1, d2, d3,
           axis.title.x = element_blank(),
           axis.text.x = element_blank())
   
+  ## second row
   p1b <- d1$rate_hypotheses[[thresholds[1]]] + 
     theme(legend.position = "none") +
     labs(y = "Congruent models")
-  
   p2b <- d2$rate_hypotheses[[thresholds[2]]] + 
     theme(strip.background = element_blank(),
           strip.text = element_blank(),
           axis.title.y = element_blank(),
-          legend.position = "none")
+          legend.position = "none",
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank())
   p3b <- d3$rate_hypotheses[[thresholds[3]]] + 
     theme(strip.background = element_blank(),
           strip.text = element_blank(),
@@ -591,20 +594,66 @@ plot_multidata <- function(d1, d2, d3,
           legend.position = c(0.4, 0.2),
           legend.title = element_blank(),
           legend.background = element_blank(),
-          legend.key = element_rect(color="black"))
+          legend.key = element_rect(color="black"),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank())
   
-  p <- 
-    p1a + p2a + p3a +
-    p1b + p2b + p3b +
-    plot_layout(ncol = 3,
-                heights = c(0.35, 0.65))
+
+  
+  if (short){
+    p <- 
+      p1a + p2a + p3a +
+      p1b + p2b + p3b +
+      plot_layout(ncol = 3,
+                  heights = c(0.35, 0.65))
+  }else{
+    p1b <- p1b + 
+      ylab("Trends in speciation\n(congruent models)")
+    p3b <- p3b +
+      theme(legend.position = "none")
+    ## third row
+    p1c <- d1$rate_delta_hypotheses[[thresholds[1]]] + 
+      theme(legend.position = "none") +
+      labs(y = "Trends in net diversification\n(congruent models)")
+    p2c <- d2$rate_delta_hypotheses[[thresholds[2]]] + 
+      theme(strip.background = element_blank(),
+            strip.text = element_blank(),
+            axis.title.y = element_blank(),
+            legend.position = "none")
+    p3c <- d3$rate_delta_hypotheses[[thresholds[3]]] + 
+      theme(strip.background = element_blank(),
+            strip.text = element_blank(),
+            axis.title.y = element_blank(),
+            legend.position = c(0.4, 0.2),
+            legend.title = element_blank(),
+            legend.background = element_blank(),
+            legend.key = element_rect(color="black"))
+    p1b <- p1b + 
+      theme(axis.text.x = element_blank(),
+            axis.title.x = element_blank())
+    p2b <- p2b + 
+      theme(axis.text.x = element_blank(),
+            axis.title.x = element_blank())
+    p3b <- p3b + 
+      theme(axis.text.x = element_blank(),
+            axis.title.x = element_blank())
+    
+    p <- 
+      p1a + p2a + p3a +
+      p1b + p2b + p3b +
+      p1c + p2c + p3c +
+      plot_layout(ncol = 3,
+                  heights = c(0.35, 0.65, 0.65))
+  }
+  
   return(p)
 }
 
 ### Picidae, Tyrannidae, Psittacidae
 multidataset <- plot_multidata(figures$condamine_etal_2019_Psittacidae,
                                figures$condamine_etal_2019_Tyrannidae,
-                               figures$condamine_etal_2019_Picidae)
+                               figures$condamine_etal_2019_Picidae,
+                               short = TRUE)
 
 ## Make them a bit prettier for the publication
 multidataset[[1]] <- multidataset[[1]] +
@@ -622,6 +671,27 @@ multidataset[[6]] <- multidataset[[6]] +
 
 ggsave("figures/ms/multidataset.pdf", multidataset, width = 150, height = 120, units = "mm")
 
+## Same three again, but including the netdiv  trends for the suppmat
+### Picidae, Tyrannidae, Psittacidae
+smulti <- plot_multidata(figures$condamine_etal_2019_Psittacidae,
+                               figures$condamine_etal_2019_Tyrannidae,
+                               figures$condamine_etal_2019_Picidae,
+                               short = FALSE)
+
+## Make them a bit prettier for the publication
+smulti[[1]] <- smulti[[1]] +
+  theme(legend.position = "none")
+smulti[[3]] <- smulti[[3]] +
+  theme(legend.position = c(0.45, 0.9),
+        legend.background = element_blank())
+
+smulti[[4]] <- smulti[[4]] +
+  theme(legend.position = "none",
+        legend.title = element_blank(),
+        legend.key = element_rect(color="black"))
+smulti[[6]] <- smulti[[6]] +
+  theme(legend.position = "none")
+ggsave("figures/suppmat/md0.pdf", smulti, width = 150, height = 180, units = "mm")
 
 rd3 <- c("condamine_etal_2019_Viduidae", "condamine_etal_2019_Parulidae", "condamine_etal_2019_Molossidae")
 figures_biggert <- lapply(rd3, function(name) bar(name, datasets, threshold = 0.08)); names(figures_biggert) <- rd3
@@ -658,9 +728,9 @@ md3[[6]] <- md3[[6]] + theme(legend.position = "none")
 md3[[2]] <- md3[[2]] + coord_cartesian(y = c(0.0, 1.2))
 md3[[3]] <- md3[[3]] + coord_cartesian(y = c(0.0, 1.2))
 
-ggsave("figures/suppmat/md1.pdf", md1, width = 150, height = 120, units = "mm")
-ggsave("figures/suppmat/md2.pdf", md2, width = 150, height = 120, units = "mm")
-ggsave("figures/suppmat/md3.pdf", md3, width = 150, height = 120, units = "mm")
+ggsave("figures/suppmat/md1.pdf", md1, width = 150, height = 180, units = "mm")
+ggsave("figures/suppmat/md2.pdf", md2, width = 150, height = 180, units = "mm")
+ggsave("figures/suppmat/md3.pdf", md3, width = 150, height = 180, units = "mm")
 
 ###########################################
 #                                         #
