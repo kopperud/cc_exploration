@@ -262,11 +262,26 @@ for (i in seq_along(ps)){
           axis.title.y = element_blank(),
           legend.position = "none")
   
+  ## netdiv trend plot
+  tmp_plot2 <- psnetdiv[[i]][[2]]
+  tmp_plot2 <- tmp_plot2 + 
+    facet_grid(group_name~., scales="free_y", 
+               space="free_y", switch = "y", 
+               labeller = labeller(group_name = lf)) +
+    theme(axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          legend.position = "none")
+  
   if (item %in% c("linear_up", "constant")){
     tmp_plot <- tmp_plot + ylab("Models") +
       theme(axis.title.y = element_text(angle = 90))
+    tmp_plot2 <- tmp_plot2 + ylab("Models") +
+      theme(axis.title.y = element_text(angle = 90))
   }else{
     tmp_plot <- tmp_plot + 
+      theme(axis.title.y = element_blank())
+    tmp_plot2 <- tmp_plot2 + 
       theme(axis.title.y = element_blank())
   }
   
@@ -275,10 +290,15 @@ for (i in seq_along(ps)){
       theme(axis.title.x = element_text(),
             axis.text.x = element_text()) +
       xlab("Time (Ma)")
+    tmp_plot2 <- tmp_plot2 +
+      theme(axis.title.x = element_text(),
+            axis.text.x = element_text()) +
+      xlab("Time (Ma)")
   }
   
   ll[[i]] <- tmp_plot
-}; names(ll) <- names(ps)
+  llnetdiv[[i]] <- tmp_plot2
+}; names(ll) <- names(ps); names(llnetdiv) <- names(llnetdiv)
 
 ########################
 ## Rateplots
@@ -357,8 +377,30 @@ p_small <- ps3$linear_up + ylab("Speciation rate") +
                                                axis.ticks.x = element_line(),
                                                axis.text.x = element_text()) + xlab("Time (Ma)") +
   plot_layout(ncol = 3)
+
+## extra suppmat figure showing the diversification trends as well
+p_small_withnetdiv <- ps3$linear_up + ylab("Speciation rate") +
+  ps3$exp_down + ps3$down +
+  ll$linear_up + theme(legend.position = c(0.38, 0.67),
+                       legend.title = element_blank(),
+                       legend.background = element_blank(),
+                       legend.key.size = unit(3, "mm"),
+                       legend.key = element_rect(),
+                       axis.text.x = element_blank(),
+                       axis.title.x = element_blank()) + ylab("Trends in speciation\n(models)") +
+  ll$exp_down + theme(axis.text.x = element_blank(),
+                      axis.title.x = element_blank()) +
+  ll$down + theme(axis.ticks.x = element_line()) + xlab("Time (Ma)") +
+  llnetdiv$linear_up + theme(legend.position = "none") + ylab("Trends in net-div\n(models)") +
+  llnetdiv$exp_down +
+  llnetdiv$down + theme(axis.title.x = element_text(),
+                         axis.ticks.x = element_line(),
+                         axis.text.x = element_text()) + xlab("Time (Ma)") +
+  plot_layout(ncol = 3)
+
 p_small
 ggsave("figures/ms/artificial_hypotheses_frommu_reduced.pdf", p_small, width = 140, height = 100, units = "mm")
+ggsave("figures/suppmat/artificial_hypotheses_frommu_reduced_withnetdiv.pdf", p_small_withnetdiv, width = 140, height = 140, units = "mm")
 
 
 
