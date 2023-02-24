@@ -76,10 +76,10 @@ for (i in 1:(NUM_INTERVALS-1)) {
   delta_log_extinction_rate[i] ~ dnNormal( mean=0, sd=sigma_extinction_rate[i]*extinction_rate_global_scale*extinction_rate_global_scale_hyperprior )
 
   # Make sure values initialize to something reasonable
-  #delta_log_speciation_rate[i].setValue(runif(1,-0.05,0.05)[1])
-  delta_log_speciation_rate[i].setValue(0.0)
-  #delta_log_extinction_rate[i].setValue(runif(1,-0.15,0.15)[1])
-  delta_log_extinction_rate[i].setValue(0.0)
+  delta_log_speciation_rate[i].setValue(runif(1,-0.1,0.1)[1])
+  #delta_log_speciation_rate[i].setValue(0.0)
+  delta_log_extinction_rate[i].setValue(runif(1,-0.1,0.1)[1])
+  #delta_log_extinction_rate[i].setValue(0.0)
 
   moves.append( mvSlideBactrian(delta_log_speciation_rate[i], weight=5))
   moves.append( mvSlideBactrian(delta_log_extinction_rate[i], weight=5))
